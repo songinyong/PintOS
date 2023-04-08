@@ -214,6 +214,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  //when new thread makes, we have to compare with running thread
+  change_highest_thread ();  
+  
   return tid;
 }
 
@@ -269,7 +272,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, less, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -350,6 +354,43 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+// Return the first element in ready_list
+// similar as thread_current ()
+
+struct thread *
+thread_ready_front (void)
+{
+  struct list_elem *el = list_front(&ready_list);
+  struct thread *t = list_entry(el, struct thread, elem);
+  
+  ASSERT (is_thread (t));
+  ASSERT (t->status == THREAD_READY);
+  
+  return t;
+}
+
+//if current thread is not highest priority
+//then yield it
+
+void 
+change_highest_thread (void)
+{
+  if(!list_empty(&ready_list))
+    if(thread_ready_front ()->priority > thread_current ()->priority)
+      thread_yield();
+}
+
+//this function is parameter of list_insert_ordered ()
+//compare two threads priority and return the first thread's 
+//priority is high
+
+bool less (struct list_elem *e, struct list_elem *elem, void *aux)
+{
+  struct thread *t1 = list_entry(e, struct thread, elem);
+  struct thread *t2 = list_entry(elem, struct thread, elem);
+  return t1->priority > t2->priority;
+}
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void
@@ -362,7 +403,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    //list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, less, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);

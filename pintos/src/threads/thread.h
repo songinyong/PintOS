@@ -128,6 +128,9 @@ tid_t thread_tid (void);
 const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
+struct thread *thread_ready_front (void);
+void change_highest_thread (void);
+bool less (struct list_elem *e, struct list_elem *elem, void *aux);
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */

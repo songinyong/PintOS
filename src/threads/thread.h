@@ -102,7 +102,10 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
     int64_t wake_time;
   };
-
+/* my func */
+bool list_less_func_impl(const struct list_elem *e1, const struct list_elem *e2, void *aux);
+static bool check_priority_readylist(struct list *ready_list);
+static bool check_priority_current(struct thread *t);
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */

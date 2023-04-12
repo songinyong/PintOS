@@ -114,9 +114,15 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
+  {
+    //need to sort the waiters list
+    list_sort (&sema -> waiters, less, NULL);
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+  }
   sema->value++;
+  //if unblocked thread has highest priority, then need to preemption.
+  change_highest_thread ();
   intr_set_level (old_level);
 }
 
@@ -196,6 +202,17 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread *current_thread = thread_current(); 
+
+  if( lock->holder )
+  {
+    current_thread -> waiting_lock_list = lock;
+    list_insert_ordered(&lock->holder->donated_threads, &current_thread->donated_threads_elem, donated_less, NULL);
+    
+    donation (current_thread);
+    
+  }   
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -230,6 +247,10 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+
+  struct thread *current_thread = thread_current();
+  remove_lock_list(lock, current_thread);
+  reset_priority(current_thread);
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
@@ -317,8 +338,24 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) 
+    list_sort (&cond->waiters, cond_less, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+}
+
+bool
+cond_less(struct list_elem *e, struct list_elem *elem, void *aux)
+{
+  struct semaphore_elem *sema_e = list_entry(e, struct semaphore_elem, elem);
+  struct semaphore_elem *sema_elem = list_entry(elem, struct semaphore_elem, elem);
+    
+  struct list *wait_e = &(sema_e->semaphore.waiters);
+  struct list *wait_elem = &(sema_elem->semaphore.waiters);
+
+  struct list_elem *begin_wait_e = list_begin(wait_e);
+  struct list_elem *begin_wait_elem = list_begin(wait_elem);
+
+  return list_entry(begin_wait_e, struct thread, elem)->priority > list_entry(begin_wait_elem, struct thread, elem)->priority;
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by

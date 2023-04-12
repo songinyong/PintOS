@@ -102,6 +102,12 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    
+    int origin_priority;	//the initialized priority
+    struct lock *waiting_lock_list;
+    struct list donated_threads;
+    struct list_elem donated_threads_elem;
+
   };
 
 /* If false (default), use round-robin scheduler.
@@ -131,14 +137,21 @@ void thread_exit (void) NO_RETURN;
 struct thread *thread_ready_front (void);
 void change_highest_thread (void);
 bool less (struct list_elem *e, struct list_elem *elem, void *aux);
+bool donated_less (struct list_elem *e, struct list_elem *elem, void *aux);
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
+
+
 int thread_get_priority (void);
 void thread_set_priority (int);
+
+void donation (struct thread *current_thread);
+void remove_lock_list (struct lock *lock, struct thread *current_thread);
+void reset_priority(struct thread *current_thread);
 
 int thread_get_nice (void);
 void thread_set_nice (int);

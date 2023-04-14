@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-  
+#include "threads/fixed_math.h"  
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -31,7 +31,6 @@ static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 // blocked list
 static struct list blocked_list;
-
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -177,6 +176,10 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  struct thread *cur = thread_current();
+
+
+
   thread_tick ();
   struct list_elem *e;
    for (e = list_begin(&blocked_list); e != list_end(&blocked_list);)
@@ -196,6 +199,39 @@ timer_interrupt (struct intr_frame *args UNUSED)
       // Move on to the next element
       e = list_next(e);
     }
+  }
+
+/* Pintos 2-3 */
+// every tick current_thread’s recent_cpu added 1.
+add_recent_cpu(cur);
+    if (ticks % 4 == 0) {
+    update_threads_priority();
+  }
+
+    if (ticks % TIMER_FREQ == 0) {
+    update_threads_recentCpu();
+    update_threads_loadAvg();
+  }
+    if (ticks % (TIMER_FREQ * 60) == 0) {
+      //update_threads_loadAvg();
+  }
+}
+
+
+/* Find the priority queue for the given priority.
+pinots-2-3
+ */
+
+static int 
+search_priority_queue(int priority) {
+  if (priority >= 0 && priority <= 15) {
+    return 0;
+  } else if (priority >= 16 && priority <= 31) {
+    return 1;
+  } else if (priority >= 32 && priority <= 47) {
+    return 2;
+  } else {
+    return 3;
   }
 }
 
